@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import pathlib
 import time
 from typing import Any
@@ -53,16 +54,22 @@ def initialize_state(cfg: dict[str, Any]) -> tuple[ParticleStateMatrix, dict[str
 
 
 async def run_simulation(config_path: pathlib.Path) -> None:
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+
     cfg = load_config(config_path)
     sim = cfg["simulation"]
     smbh = cfg["smbh"]
     io_cfg = cfg.get("io", {})
+    sph_cfg = cfg.get("sph", {})
 
     n = int(sim["num_particles"])
     dt = float(sim["dt"])
     total_steps = int(sim["total_steps"])
     write_interval = int(sim["write_interval"])
     gamma = float(cfg.get("eos", {}).get("gamma", 5 / 3))
+    prefer_amuse = sph_cfg.get("prefer_amuse", "fi")
+    if prefer_amuse is not None and str(prefer_amuse).lower() == "none":
+        prefer_amuse = "none"
 
     print(f"[HVIT ENGINE] Initializing {n:,} fluid particle state matrix...")
     state, orbit_meta = initialize_state(cfg)
@@ -78,7 +85,14 @@ async def run_simulation(config_path: pathlib.Path) -> None:
         smbh_mass_msun=float(smbh["mass_msun"]),
         spin_a=float(smbh.get("spin_a", 0.9)),
         gamma=gamma,
+        eta=float(sph_cfg.get("eta", 1.2)),
+        alpha_av=float(sph_cfg.get("alpha_av", 1.0)),
+        beta_av=float(sph_cfg.get("beta_av", 2.0)),
+        prefer_amuse=prefer_amuse,  # type: ignore[arg-type]
+        block_size=int(sph_cfg.get("block_size", 128)),
     )
+    print(f"[HVIT ENGINE] Hydro backend: {solver.hydro_backend}")
+
     sink = AsyncHDF5Sink(output_dir=str(io_cfg.get("output_dir", "scratch/snapshots")))
 
     init_diag = solver.compute_diagnostics(step=0, time=0.0)
@@ -87,26 +101,29 @@ async def run_simulation(config_path: pathlib.Path) -> None:
         f"|P| = {init_diag.momentum_magnitude:.6e} kg·m/s"
     )
 
-    print("[HVIT ENGINE] Execution started.")
+    print(f"[HVIT ENGINE] Execution started ({total_steps} steps, dt={dt:.3e} s).")
     t_start = time.perf_counter()
 
-    for step in range(total_steps):
-        solver.step_hydro_and_relativity(dt)
-        current_time = (step + 1) * dt
+    try:
+        for step in range(total_steps):
+            solver.step_hydro_and_relativity(dt)
+            current_time = (step + 1) * dt
 
-        if step % write_interval == 0:
-            diag = solver.compute_diagnostics(step=step, time=current_time)
-            sink.schedule_snapshot(state, step, current_time, diagnostics=diag)
-            rel_drift = (
-                (diag.total_energy - init_diag.total_energy) / abs(init_diag.total_energy)
-                if init_diag.total_energy != 0.0
-                else 0.0
-            )
-            print(
-                f"[HVIT ENGINE] step={step:5d} t={current_time:.4e}s "
-                f"E={diag.total_energy:.6e} J dE/E0={rel_drift:+.6e} "
-                f"|P|={diag.momentum_magnitude:.6e}"
-            )
+            if step % write_interval == 0:
+                diag = solver.compute_diagnostics(step=step, time=current_time)
+                sink.schedule_snapshot(state, step, current_time, diagnostics=diag)
+                rel_drift = (
+                    (diag.total_energy - init_diag.total_energy) / abs(init_diag.total_energy)
+                    if init_diag.total_energy != 0.0
+                    else 0.0
+                )
+                print(
+                    f"[HVIT ENGINE] step={step:5d} t={current_time:.4e}s "
+                    f"E={diag.total_energy:.6e} J dE/E0={rel_drift:+.6e} "
+                    f"|P|={diag.momentum_magnitude:.6e}"
+                )
+    finally:
+        solver.shutdown()
 
     written = await sink.flush()
     sink.shutdown()

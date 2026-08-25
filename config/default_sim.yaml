@@ -29,5 +29,12 @@ orbit:
 eos:
   gamma: 1.6666666666666667  # 5/3
 
+sph:
+  eta: 1.2
+  alpha_av: 1.0
+  beta_av: 2.0
+  block_size: 128
+  prefer_amuse: none          # fi | gadget2 | none
+
 io:
   output_dir: scratch/snapshots
