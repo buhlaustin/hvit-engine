@@ -63,9 +63,10 @@ async def run_simulation(config_path: pathlib.Path) -> None:
     sph_cfg = cfg.get("sph", {})
 
     n = int(sim["num_particles"])
-    dt = float(sim["dt"])
+    dt_max = float(sim["dt"])
     total_steps = int(sim["total_steps"])
     write_interval = int(sim["write_interval"])
+    end_time = total_steps * dt_max
     gamma = float(cfg.get("eos", {}).get("gamma", 5 / 3))
     prefer_amuse = sph_cfg.get("prefer_amuse", "fi")
     if prefer_amuse is not None and str(prefer_amuse).lower() == "none":
@@ -88,26 +89,39 @@ async def run_simulation(config_path: pathlib.Path) -> None:
         eta=float(sph_cfg.get("eta", 1.2)),
         alpha_av=float(sph_cfg.get("alpha_av", 1.0)),
         beta_av=float(sph_cfg.get("beta_av", 2.0)),
+        c_cfl=float(sph_cfg.get("c_cfl", 0.2)),
+        dt_min=float(sph_cfg.get("dt_min", 1.0e-6)),
         prefer_amuse=prefer_amuse,  # type: ignore[arg-type]
-        block_size=int(sph_cfg.get("block_size", 128)),
     )
     print(f"[HVIT ENGINE] Hydro backend: {solver.hydro_backend}")
 
     sink = AsyncHDF5Sink(output_dir=str(io_cfg.get("output_dir", "scratch/snapshots")))
 
     init_diag = solver.compute_diagnostics(step=0, time=0.0)
+    init_cfl = solver.compute_cfl_timestep(dt_max=dt_max)
     print(
         f"[HVIT ENGINE] E0 = {init_diag.total_energy:.6e} J | "
         f"|P| = {init_diag.momentum_magnitude:.6e} kg·m/s"
     )
+    print(
+        f"[HVIT ENGINE] CFL init: dt={init_cfl.dt:.3e} s, "
+        f"h_min={init_cfl.h_min:.3e} m, rho_max={init_cfl.rho_max:.3e} kg/m³"
+    )
 
-    print(f"[HVIT ENGINE] Execution started ({total_steps} steps, dt={dt:.3e} s).")
+    print(f"[HVIT ENGINE] Execution started (target end_time={end_time:.3e} s, dt_max={dt_max:.3e} s).")
     t_start = time.perf_counter()
 
+    current_time = 0.0
+    step = 0
+
     try:
-        for step in range(total_steps):
-            solver.step_hydro_and_relativity(dt)
-            current_time = (step + 1) * dt
+        while current_time < end_time:
+            cfl = solver.compute_cfl_timestep(dt_max=dt_max)
+            dt_step = min(cfl.dt, end_time - current_time)
+
+            solver.step_hydro_and_relativity(dt_step)
+            current_time += dt_step
+            step += 1
 
             if step % write_interval == 0:
                 diag = solver.compute_diagnostics(step=step, time=current_time)
@@ -118,7 +132,8 @@ async def run_simulation(config_path: pathlib.Path) -> None:
                     else 0.0
                 )
                 print(
-                    f"[HVIT ENGINE] step={step:5d} t={current_time:.4e}s "
+                    f"[HVIT ENGINE] step={step:5d} t={current_time:.4e}s dt={dt_step:.3e}s "
+                    f"h_min={cfl.h_min:.3e}m rho_max={cfl.rho_max:.3e}kg/m³ "
                     f"E={diag.total_energy:.6e} J dE/E0={rel_drift:+.6e} "
                     f"|P|={diag.momentum_magnitude:.6e}"
                 )
@@ -129,14 +144,14 @@ async def run_simulation(config_path: pathlib.Path) -> None:
     sink.shutdown()
 
     t_end = time.perf_counter()
-    final_diag = solver.compute_diagnostics(step=total_steps - 1, time=total_steps * dt)
+    final_diag = solver.compute_diagnostics(step=step, time=current_time)
     rel_drift = (
         (final_diag.total_energy - init_diag.total_energy) / abs(init_diag.total_energy)
         if init_diag.total_energy != 0.0
         else 0.0
     )
 
-    print(f"[HVIT ENGINE] Finished {total_steps} steps in {t_end - t_start:.3f}s")
+    print(f"[HVIT ENGINE] Finished {step} sub-steps in {t_end - t_start:.3f}s (t={current_time:.4e} s)")
     print(f"[HVIT ENGINE] Final dE/E0 = {rel_drift:+.6e}")
     print(f"[HVIT ENGINE] Wrote {len(written)} snapshot(s) to {sink.output_dir}")
 

@@ -1,8 +1,8 @@
 simulation:
   num_particles: 10000
-  dt: 1.0e-3          # seconds
-  total_steps: 100
-  write_interval: 10
+  dt: 1.0e-3          # max CFL timestep / config ceiling [s]
+  total_steps: 100    # used with dt to define end_time = total_steps * dt
+  write_interval: 10  # HDF5 dump every N sub-steps
 
 smbh:
   mass_msun: 1.0e6
@@ -33,7 +33,8 @@ sph:
   eta: 1.2
   alpha_av: 1.0
   beta_av: 2.0
-  block_size: 128
+  c_cfl: 0.2
+  dt_min: 1.0e-6
   prefer_amuse: none          # fi | gadget2 | none
 
 io:
