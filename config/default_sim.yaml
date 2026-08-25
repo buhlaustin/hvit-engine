@@ -1,0 +1,23 @@
+simulation:
+  num_particles: 10000
+  dt: 1.0e-3          # seconds
+  total_steps: 100
+  write_interval: 10
+
+smbh:
+  mass_msun: 1.0e6
+  spin_a: 0.9
+
+initial_conditions:
+  star1_pos_x: 1.496e11   # 1 AU [m]
+  star2_pos_x: 1.550e11
+  star2_vel_x: -1.5e7     # ~0.05c inbound [m/s]
+  rho: 1408.0             # stellar core density [kg/m^3]
+  u: 1.0e11               # specific internal energy [J/kg]
+  particle_mass: 1.0e24   # kg per SPH particle
+
+eos:
+  gamma: 1.6666666666666667  # 5/3
+
+io:
+  output_dir: scratch/snapshots

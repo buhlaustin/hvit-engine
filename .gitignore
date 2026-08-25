@@ -1,0 +1,11 @@
+# Local Compute Scratch & Snapshots
+scratch/
+*.h5
+*.hdf5
+*.npz
+
+# Python environment
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
