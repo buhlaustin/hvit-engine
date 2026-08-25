@@ -8,10 +8,10 @@ import pathlib
 import time
 from typing import Any
 
-import numpy as np
 import yaml
 
 from hvit.core.state import ParticleStateMatrix
+from hvit.ic.orbit import inject_binary_collision
 from hvit.io.hdf5_sink import AsyncHDF5Sink
 from hvit.solvers.sph_engine import HVITSolver
 
@@ -21,26 +21,35 @@ def load_config(config_path: pathlib.Path) -> dict[str, Any]:
         return yaml.safe_load(handle)
 
 
-def initialize_state(cfg: dict[str, Any]) -> ParticleStateMatrix:
+def initialize_state(cfg: dict[str, Any]) -> tuple[ParticleStateMatrix, dict[str, float]]:
     sim = cfg["simulation"]
-    ic = cfg["initial_conditions"]
-    n = int(sim["num_particles"])
-
-    state = ParticleStateMatrix.allocate(n)
-    half = n // 2
-
-    state.pos[:half, 0] = float(ic["star1_pos_x"])
-    state.pos[half:, 0] = float(ic["star2_pos_x"])
-    state.vel[half:, 0] = float(ic["star2_vel_x"])
-
-    state.mass[:] = float(ic["particle_mass"])
-    state.rho[:] = float(ic["rho"])
-    state.u[:] = float(ic["u"])
-    state.h[:] = np.cbrt(state.mass / state.rho) * 2.0
-
+    smbh = cfg["smbh"]
+    primary = cfg["stellar_primary"]
+    secondary = cfg["stellar_secondary"]
+    orbit = cfg["orbit"]
     gamma = float(cfg.get("eos", {}).get("gamma", 5 / 3))
-    state.compute_eos_ideal_gas(gamma=gamma)
-    return state
+
+    n = int(sim["num_particles"])
+    state = ParticleStateMatrix.allocate(n)
+
+    orbit_meta = inject_binary_collision(
+        state,
+        M_smbh_msun=float(smbh["mass_msun"]),
+        r_p_rsch=float(orbit["r_p_rsch"]),
+        eccentricity=float(orbit["eccentricity"]),
+        v_inf_c=float(orbit["v_infinity_c"]),
+        m1_msun=float(primary["mass_msun"]),
+        r1_rsun=float(primary["radius_rsun"]),
+        m2_msun=float(secondary["mass_msun"]),
+        r2_rsun=float(secondary["radius_rsun"]),
+        n1=float(primary.get("polytropic_index", 1.5)),
+        n2=float(secondary.get("polytropic_index", 1.5)),
+        gamma=gamma,
+        r0_factor=float(orbit.get("r0_factor", 50.0)),
+        separation_factor=float(orbit.get("separation_factor", 2.5)),
+        seed=orbit.get("seed"),
+    )
+    return state, orbit_meta
 
 
 async def run_simulation(config_path: pathlib.Path) -> None:
@@ -56,7 +65,13 @@ async def run_simulation(config_path: pathlib.Path) -> None:
     gamma = float(cfg.get("eos", {}).get("gamma", 5 / 3))
 
     print(f"[HVIT ENGINE] Initializing {n:,} fluid particle state matrix...")
-    state = initialize_state(cfg)
+    state, orbit_meta = initialize_state(cfg)
+    print(
+        f"[HVIT ENGINE] Orbit: r_p={orbit_meta['r_periapsis_m']:.3e} m "
+        f"({cfg['orbit']['r_p_rsch']} r_s), "
+        f"r_0={orbit_meta['r_initial_m']:.3e} m, "
+        f"v_inf={orbit_meta['v_infinity_m_s']:.3e} m/s"
+    )
 
     solver = HVITSolver(
         state,

@@ -8,13 +8,23 @@ smbh:
   mass_msun: 1.0e6
   spin_a: 0.9
 
-initial_conditions:
-  star1_pos_x: 1.496e11   # 1 AU [m]
-  star2_pos_x: 1.550e11
-  star2_vel_x: -1.5e7     # ~0.05c inbound [m/s]
-  rho: 1408.0             # stellar core density [kg/m^3]
-  u: 1.0e11               # specific internal energy [J/kg]
-  particle_mass: 1.0e24   # kg per SPH particle
+stellar_primary:
+  mass_msun: 1.0
+  radius_rsun: 1.0
+  polytropic_index: 1.5
+
+stellar_secondary:
+  mass_msun: 0.8
+  radius_rsun: 0.85
+  polytropic_index: 1.5
+
+orbit:
+  r_p_rsch: 10.0       # periapsis in Schwarzschild radii (r_s = 2GM/c²)
+  eccentricity: 1.5    # hyperbolic eccentricity e > 1
+  v_infinity_c: 0.05   # |v_inf| / c
+  r0_factor: 50.0      # initial COM radius = r0_factor * r_p
+  separation_factor: 2.5
+  seed: 42
 
 eos:
   gamma: 1.6666666666666667  # 5/3

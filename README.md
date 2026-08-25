@@ -11,6 +11,7 @@ hvit-engine/
 ├── config/default_sim.yaml   # Run parameters (YAML)
 ├── hvit/
 │   ├── core/                 # ParticleStateMatrix, RelativisticPotential
+│   ├── ic/                   # Polytropic profiles, binary orbit injection
 │   ├── solvers/              # HVITSolver (leapfrog + PN gravity)
 │   └── io/                   # AsyncHDF5Sink → scratch/snapshots/
 ├── scratch/                  # gitignored runtime output
@@ -32,6 +33,7 @@ Default config uses `10_000` particles for dev iteration. Bump `simulation.num_p
 
 ## Current Loop (v0.1)
 
+- **ICs:** Lane–Emden polytropes (`n=1.5`) via 3D rejection sampling; hyperbolic plunge orbits with `r_p` in Schwarzschild radii
 - **Gravity:** Paczynski–Wiita pseudo-Newtonian + Lense–Thirring frame dragging
 - **Hydro:** Ideal-gas EOS closure (`P = (γ−1)ρu`); full AMUSE SPH coupling next
 - **Monitors:** Total energy (KE + PW potential + internal) and linear momentum per snapshot
