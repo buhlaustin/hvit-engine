@@ -1,0 +1,41 @@
+simulation:
+  num_particles: 10000
+  dt: 1.0e-3          # max CFL timestep / config ceiling [s]
+  total_steps: 100    # used with dt to define end_time = total_steps * dt
+  write_interval: 10  # HDF5 dump every N sub-steps
+
+smbh:
+  mass_msun: 1.0e6
+  spin_a: 0.9
+
+stellar_primary:
+  mass_msun: 1.0
+  radius_rsun: 1.0
+  polytropic_index: 1.5
+
+stellar_secondary:
+  mass_msun: 0.8
+  radius_rsun: 0.85
+  polytropic_index: 1.5
+
+orbit:
+  r_p_rsch: 10.0       # periapsis in Schwarzschild radii (r_s = 2GM/c²)
+  eccentricity: 1.5    # hyperbolic eccentricity e > 1
+  v_infinity_c: 0.05   # |v_inf| / c
+  r0_factor: 50.0      # initial COM radius = r0_factor * r_p
+  separation_factor: 2.5
+  seed: 42
+
+eos:
+  gamma: 1.6666666666666667  # 5/3
+
+sph:
+  eta: 1.2
+  alpha_av: 1.0
+  beta_av: 2.0
+  c_cfl: 0.2
+  dt_min: 1.0e-6
+  prefer_amuse: none          # fi | gadget2 | none
+
+io:
+  output_dir: scratch/snapshots
