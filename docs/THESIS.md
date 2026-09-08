@@ -99,7 +99,7 @@ The hvit-engine code is the computational instrument for this thesis. Its design
 3. **Hyperbolic binary injection** initializes two polytropic stars on collisional trajectories, not a single parabolic disruptor.
 4. **Energy diagnostics** track kinetic, internal, and gravitational energy separately, enabling direct measurement of shock-driven heating versus orbital energy exchange.
 
-Mathematical details of the governing equations, closures, and integrators are given in [THEORY.md](THEORY.md).
+Mathematical details of the governing equations, closures, and integrators are given in [THEORY.md](THEORY.md). The structured comparison against the Rees (1988) TDE paradigm—including failure cases at the Hills mass limit and in survey light-curve anomalies—is given in [PARADIGM.md](PARADIGM.md).
 
 ---
 
