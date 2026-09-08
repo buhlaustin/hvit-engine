@@ -1,6 +1,6 @@
 # hvit-engine
 
-Open-source particle-mesh simulation framework developed by the Smoky Mountain Institute for Relativistic Physics (SMIRP). Models hydrodynamics of relativistic stellar collisions near black holes to isolate kinetic energy signatures of hyper-velocity impact transients (HVIT).
+Open-source particle-mesh simulation framework developed by Austin Buhl. Models hydrodynamics of relativistic stellar collisions near black holes to isolate kinetic energy signatures of hyper-velocity impact transients (HVIT).
 
 Built with Python, AMUSE, and CUDA.
 
